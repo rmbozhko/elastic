@@ -1,0 +1,105 @@
+services:
+  es-master-01: # vital to have at least 3 master nodes for quorum and cluster stability
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: es-master-01
+    environment:
+      - node.name=es-master-01
+      - cluster.name=scale-cluster
+      - node.roles=[ master ] # vital to distinguish master nodes from data nodes
+      - cluster.initial_master_nodes=es-master-01,es-master-02,es-master-03
+      - discovery.seed_hosts=es-master-02,es-master-03,es-data-01,es-data-02
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    volumes:
+      - master01_data:/usr/share/elasticsearch/data
+    networks:
+      - elastic
+
+  es-master-02:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: es-master-02
+    environment:
+      - node.name=es-master-02
+      - cluster.name=scale-cluster
+      - node.roles=[ master ]
+      - cluster.initial_master_nodes=es-master-01,es-master-02,es-master-03
+      - discovery.seed_hosts=es-master-01,es-master-03,es-data-01,es-data-02
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    volumes:
+      - master02_data:/usr/share/elasticsearch/data
+    networks:
+      - elastic
+
+  es-master-03:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: es-master-03
+    environment:
+      - node.name=es-master-03
+      - cluster.name=scale-cluster
+      - node.roles=[ master ]
+      - cluster.initial_master_nodes=es-master-01,es-master-02,es-master-03
+      - discovery.seed_hosts=es-master-01,es-master-02,es-data-01,es-data-02
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    volumes:
+      - master03_data:/usr/share/elasticsearch/data
+    networks:
+      - elastic
+
+  es-data-01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: es-data-01
+    environment:
+      - node.name=es-data-01
+      - cluster.name=scale-cluster
+      - node.roles=[ data, ingest ] # Holds data and processes it
+      - cluster.initial_master_nodes=es-master-01,es-master-02,es-master-03
+      - discovery.seed_hosts=es-master-01,es-master-02,es-master-03
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # Data nodes need more RAM
+    volumes:
+      - data01_data:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200 
+    networks:
+      - elastic
+
+  es-data-02:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: es-data-02
+    environment:
+      - node.name=es-data-02
+      - cluster.name=scale-cluster
+      - node.roles=[ data, ingest ]
+      - cluster.initial_master_nodes=es-master-01,es-master-02,es-master-03
+      - discovery.seed_hosts=es-master-01,es-master-02,es-master-03
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - data02_data:/usr/share/elasticsearch/data
+    networks:
+      - elastic
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.12.0
+    container_name: kibana
+    ports:
+      - 5601:5601
+    environment:
+      - ELASTICSEARCH_HOSTS=["http://es-data-01:9200","http://es-data-02:9200"]
+    networks:
+      - elastic
+    depends_on:
+      - es-data-01
+
+volumes:
+  master01_data:
+  master02_data:
+  master03_data:
+  data01_data:
+  data02_data:
+
+networks:
+  elastic:
+    driver: bridge
