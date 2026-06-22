@@ -1,0 +1,117 @@
+PUT shakespear-index
+
+PUT shakespear-index/_doc/1
+{
+    "type": "line",
+    "line_id": 18122,
+    "play_name": "As you like it",
+    "speech_number": 19,
+    "line_number": "5.1.28",
+    "speaker": "TOUCHSTONE",
+    "text_entry": "The fool doth think he is wise, but the wise man knows himself to be a fool."
+}
+
+GET shakespear-index/_search
+{
+    "query": {
+        "match_phrase": {"text_entry": "the fool doth think"}
+    },
+    "highlight": {
+        "fields": {
+            "text_entry": {}
+        }
+    }
+}
+
+GET shakespear-index/_mappings
+
+
+GET shakespear-index/_search
+{
+    "query": {  
+        "range": {
+            "speech_number": {
+                "gt": 5,
+                "lt": 100
+            }
+        }
+    }
+}
+
+DELETE shakespear-index
+
+// create the index
+PUT shakespear-index
+
+PUT shakespear-index/_mappings
+{
+    "properties" : {
+        "type": {"type": "keyword"},
+        "line_id" : {"type": "integer"},
+        "play_name" : {"type": "keyword"},
+        "line_number": {"type": "keyword"},
+        "speech_number" : {"type":  "integer"},
+        "speaker" : {"type": "keyword"},
+        "text_entry": {"type": "text"}
+    }
+}
+
+GET shakespear-index/_mappings
+
+PUT shakespear-index/_doc/1
+{
+    "type": "line",
+    "line_id": 18122,
+    "play_name": "As you like it",
+    "speech_number": 19,
+    "line_number": "5.1.28",
+    "speaker": "TOUCHSTONE",
+    "text_entry": "The fool doth think he is wise, but the wise man knows himself to be a fool."
+}
+
+PUT _ingest/pipeline/add-timestamp
+{
+    "description" : "Add a timestamp to each document",
+    "processors" : [
+        {
+            "set" : {
+                "field" : "_source.@timestamp",
+                "value" : "{{_ingest.timestamp}}"
+            }
+        }
+    ]
+}
+
+PUT shakespear-index/_settings
+{
+    "index" : {
+        "default_pipeline" : "add-timestamp"
+    }
+}
+
+
+
+PUT shakespear-index/_doc/2
+{
+    "type":"line",
+    "line_id":18123,
+    "play_name":"As you like it",
+    "speech_number":19,
+    "line_number":"5.1.29",
+    "speaker":"TOUCHSTONE",
+    "text_entry":"knows himself to be a fool. The heathen"
+}
+
+GET shakespear-index/_doc/2
+
+
+GET shakespear-index/_search
+{
+    "query": {
+        "range": {
+            "@timestamp": {
+                "gte": "now-1h"
+            }
+        }
+    }
+}
