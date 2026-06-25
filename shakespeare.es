@@ -1,6 +1,6 @@
-PUT shakespear-index
+PUT shakespeare
 
-PUT shakespear-index/_doc/1
+PUT shakespeare/_doc/1
 {
     "type": "line",
     "line_id": 18122,
@@ -11,7 +11,7 @@ PUT shakespear-index/_doc/1
     "text_entry": "The fool doth think he is wise, but the wise man knows himself to be a fool."
 }
 
-GET shakespear-index/_search
+GET shakespeare/_search
 {
     "query": {
         "match_phrase": {"text_entry": "the fool doth think"}
@@ -23,10 +23,10 @@ GET shakespear-index/_search
     }
 }
 
-GET shakespear-index/_mappings
+GET shakespeare/_mappings
 
 
-GET shakespear-index/_search
+GET shakespeare/_search
 {
     "query": {  
         "range": {
@@ -38,12 +38,12 @@ GET shakespear-index/_search
     }
 }
 
-DELETE shakespear-index
+DELETE shakespeare
 
 // create the index
-PUT shakespear-index
+PUT shakespeare
 
-PUT shakespear-index/_mappings
+PUT shakespeare/_mappings
 {
     "properties" : {
         "type": {"type": "keyword"},
@@ -56,9 +56,9 @@ PUT shakespear-index/_mappings
     }
 }
 
-GET shakespear-index/_mappings
+GET shakespeare/_mappings
 
-PUT shakespear-index/_doc/1
+PUT shakespeare/_doc/1
 {
     "type": "line",
     "line_id": 18122,
@@ -82,7 +82,7 @@ PUT _ingest/pipeline/add-timestamp
     ]
 }
 
-PUT shakespear-index/_settings
+PUT shakespeare/_settings
 {
     "index" : {
         "default_pipeline" : "add-timestamp"
@@ -91,7 +91,7 @@ PUT shakespear-index/_settings
 
 
 
-PUT shakespear-index/_doc/2
+PUT shakespeare/_doc/2
 {
     "type":"line",
     "line_id":18123,
@@ -102,16 +102,68 @@ PUT shakespear-index/_doc/2
     "text_entry":"knows himself to be a fool. The heathen"
 }
 
-GET shakespear-index/_doc/2
+GET shakespeare/_doc/2
 
 
-GET shakespear-index/_search
+GET shakespeare/_search
 {
     "query": {
         "range": {
             "@timestamp": {
-                "gte": "now-1h"
+                "gte": "now-1m"
             }
         }
     }
 }
+
+DELETE shakespeare
+
+GET shakespeare/_count
+
+GET shakespeare/_doc/107175
+
+GET shakespeare/_search
+{
+    "query": {
+        "bool": {
+            "must": [
+                {
+                    "match_phrase": {
+                        "text_entry": "comedy"
+                    }
+                },
+                {
+                    "match_phrase": {
+                        "speaker": "HAMLET"
+                    }
+                },
+                {
+                    "range": {
+                        "speech_number": {
+                            "gte": 10,
+                            "lte": 200
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "highlight": {
+        "fields": {
+            "text_entry": {}
+        }
+    }
+}
+
+// request to add a new document to the shakespeare index with a refresh parameter to make it searchable immediately 
+POST shakespeare/_doc?refresh=true
+{
+    "type":"line",
+    "line_id":18123,
+    "play_name":"As you like it",
+    "speech_number":19,
+    "line_number":"5.1.29",
+    "speaker":"TOUCHSTONE",
+    "text_entry":"knows himself to be a fool. The heathen"
+}
+
