@@ -54,6 +54,21 @@ PUT /products/_doc/1
 
 GET /products/_doc/1
 
+POST /products/_update/1
+{
+    "doc": {
+        "created_at": "2026-07-15T10:00:00Z"
+    }
+}
+
+
+POST /products/_update/1?retry_on_conflict=3
+{
+    "script": {
+        "source": "ctx._source.stock_count = 20"
+    }
+}
+
 POST /products/_doc/
 {
   "product_id": "P-1002",
@@ -70,6 +85,7 @@ GET /products/_doc/uuti-Z4BUK6modtJ-lpe
 
 GET /products/_search
 
+DELETE /products/_doc/4
 
 POST /products/_bulk
 { "index": { "_id": "2" } } // index this document to ID 2
@@ -78,15 +94,6 @@ POST /products/_bulk
 { "product_id": "P-1003", "title": "Logitech G Pro X Superlight", "description": "Ultra lightweight wireless esports gaming mouse.", "category": "Accessories", "price": 4500.00, "stock_count": 50, "is_active": true, "created_at": "2023-11-15T10:00:00Z" } // the actual document to be indexed
 { "index": { "_id": "4" } } // index this document to ID 4
 { "product_id": "P-1004", "title": "Asus Zenbook 14", "description": "Thin and light office laptop. Not suitable for gaming.", "category": "Electronics", "price": 35000.00, "stock_count": 20, "is_active": true, "created_at": "2023-12-01T10:00:00Z" } // the actual document to be indexed
-
-
-POST /products/_bulk
-{"index":{"_id":"2"}}
-{"product_id":"P-1002","title":"AppleMacBookProM3","description":"18GBRAM,512GBSSD.Videoeditingmonster.","category":"Electronics","price":75000.00,"stock_count":5,"is_active":true,"created_at":"2023-11-01T10:00:00Z"}
-{"index":{"_id":"3"}}
-{"product_id":"P-1003","title":"LogitechGProXSuperlight","description":"Ultralightweightwirelessesportsgamingmouse.","category":"Accessories","price":4500.00,"stock_count":50,"is_active":true,"created_at":"2023-11-15T10:00:00Z"}
-{"index":{"_id":"4"}}
-{"product_id":"P-1004","title":"AsusZenbook14","description":"Thinandlightofficelaptop.Notsuitableforgaming.","category":"Electronics","price":35000.00,"stock_count":20,"is_active":true,"created_at":"2023-12-01T10:00:00Z"}
 
 GET /products/_count
 
@@ -130,4 +137,82 @@ POST /products/_update/909
     }
 }
 
-GET /products/_doc/909
+GET /products/_doc/1
+
+
+// fail to create a document - HTTP 409 Conflict
+PUT /products/_create/1
+{
+    "product_id": "P-1001",
+    "title": "Asus ROG Strix Gaming Laptop",
+    "description": "16GB RAM, 1TB NVMe SSD, RTX 4060. Perfect for hardcore gamers.",
+    "category": "Electronics",
+    "price": 45000,
+    "stock_count": 15,
+    "is_active": true,
+    "created_at": "2023-10-25T10:00:00Z"
+}
+
+POST /products/_update/1
+{
+    "doc": {
+        "price": 44000.00
+    }
+}
+
+GET /products/_doc/1
+
+POST /products/_update/1
+{
+    "doc": {
+        "stock_count": 20
+    }
+}
+
+PUT /products/_create/404
+{
+    "product_id": "P-404",
+    "title": "Test Product 404",
+    "description": "This is a test product for testing purposes.",
+    "category": "Testing",
+    "price": 100.00,
+    "stock_count": 5,
+    "is_active": true,
+    "created_at": "2024-06-23T10:00:00Z"
+}
+
+GET /products/_doc/404
+
+DELETE /products/_doc/404
+
+GET /products/_search
+{
+    "query": {
+        "term": {
+            "stock_count": 20
+        }
+    }
+}
+
+PUT /products/_doc/10
+{
+    "product_id": "P-1010",
+    "title": "Dell XPS 13",
+    "description": "gaming laptop with Intel i7, 16GB RAM, 512GB SSD.",
+    "category": "Electronics",
+    "price": 42000.00,
+    "stock_count": 20,
+    "is_active": true,
+    "created_at": "2023-12-15T10:00:00Z"
+}
+
+GET /products/_search
+{
+    "query": {
+        "match": {
+            "description": "gaming laptop"
+        }
+    }
+}
+
+GET /products/_doc/10

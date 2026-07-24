@@ -8,6 +8,7 @@
 // exclude inactive products
 // exclude products priced above 45000
 // exclude products whose stock is zero
+// include products prices in range 40000 to 45000
 
 GET /products/_search
 {
@@ -31,6 +32,16 @@ GET /products/_search
                     "range": {
                         "stock_count": {
                             "lte": 0
+                        }
+                    }
+                }
+            ],
+            "filter": [
+                {
+                    "range": {
+                        "price": {
+                            "gte": 40000,
+                            "lte": 45000
                         }
                     }
                 }

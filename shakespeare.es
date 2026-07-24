@@ -42,6 +42,23 @@ DELETE shakespeare
 
 // create the index
 PUT shakespeare
+{
+    "settings": {
+        "number_of_shards": 2,
+        "number_of_replicas": 1
+    },
+    "mappings": {
+        "properties": {
+            "type": {"type": "keyword"},
+            "line_id" : {"type": "integer"},
+            "play_name" : {"type": "keyword"},
+            "line_number": {"type": "keyword"},
+            "speech_number" : {"type":  "integer"},
+            "speaker" : {"type": "keyword"},
+            "text_entry": {"type": "text"}
+        }
+    }
+}
 
 PUT shakespeare/_mappings
 {
@@ -126,15 +143,17 @@ GET shakespeare/_search
 {
     "query": {
         "bool": {
+            "filter": [
+                {
+                    "term": {
+                        "play_name": "Hamlet"
+                    }
+                }
+            ],
             "must": [
                 {
                     "match_phrase": {
                         "text_entry": "comedy"
-                    }
-                },
-                {
-                    "match_phrase": {
-                        "speaker": "HAMLET"
                     }
                 },
                 {
@@ -143,6 +162,13 @@ GET shakespeare/_search
                             "gte": 10,
                             "lte": 200
                         }
+                    }
+                }
+            ],
+            "should": [
+                {
+                    "term": {
+                        "speaker": "HAMLET"
                     }
                 }
             ]
@@ -167,3 +193,59 @@ POST shakespeare/_doc?refresh=true
     "text_entry":"knows himself to be a fool. The heathen"
 }
 
+
+GET shakespeare/_search
+{
+    "size": 5,
+    "sort": [
+        {
+            "play_name" : "asc"
+        }
+    ],
+    "_source": [
+        "play_name",
+        "speaker"
+    ]
+}
+
+// request to get the top 10 plays with the their speakers
+GET /shakespeare/_search
+{
+    "size": 0,
+    "aggs": {
+        "by_play": {
+            "terms": {
+                "field": "play_name",
+                "size": 10
+            },
+            "aggs": {
+                "speaker_count": {
+                    "cardinality": {
+                        "field": "speaker"
+                    }
+                }
+            }
+        }
+    }
+}
+
+// get the exact count of documents in the shakespeare index
+GET /shakespeare/_count
+
+
+// get the exact count of documents in the shakespeare index matching a specific query
+GET /shakespeare/_search
+{
+    "track_total_hits": true,
+    "query":{
+        "bool":{
+            "must" : [
+                {
+                    "match": {
+                        "text_entry": "fool"
+                    }
+                }
+            ]
+        }
+    }
+}
