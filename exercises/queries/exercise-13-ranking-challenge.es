@@ -26,7 +26,8 @@ GET products/_search
                 {
                     "range": {
                         "created_at": {
-                            "gte": "2026-01-01",
+                            "lte": "now/y+1y-1ms",
+                            "gte": "now/y",
                             "boost": 2
                         }
                     }
