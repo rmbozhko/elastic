@@ -1,0 +1,209 @@
+version: '3.8'
+
+services:
+  setup:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: es-setup
+    volumes:
+      - certs:/usr/share/elasticsearch/config/certs
+    user: "0"
+    command: >
+      bash -c '
+        if [ ! -f config/certs/ca.zip ]; then
+          echo "Generating CA...";
+          bin/elasticsearch-certutil ca --silent --pem -out config/certs/ca.zip;
+          unzip config/certs/ca.zip -d config/certs/;
+        fi;
+        if [ ! -f config/certs/certs.zip ]; then
+          echo "Creating instances config...";
+          echo -e "instances:\n  - name: es-master-01\n    dns: [es-master-01, localhost]\n  - name: es-master-02\n    dns: [es-master-02, localhost]\n  - name: es-master-03\n    dns: [es-master-03, localhost]\n  - name: es-data-01\n    dns: [es-data-01, localhost]\n  - name: es-data-02\n    dns: [es-data-02, localhost]" > config/certs/instances.yml;
+          echo "Generating node certificates...";
+          bin/elasticsearch-certutil cert --silent --pem --in config/certs/instances.yml -out config/certs/certs.zip --ca-cert config/certs/ca/ca.crt --ca-key config/certs/ca/ca.key;
+          unzip config/certs/certs.zip -d config/certs/;
+        fi;
+        echo "Setting correct file permissions...";
+        chown -R 1000:1000 config/certs;
+        
+        echo "Waiting for Elasticsearch to respond to set system passwords...";
+        until curl -s -u elastic:SuperSecurePassword123 http://es-data-01:9200/_cluster/health | grep -q '"status"'; do sleep 5; done;
+        
+        echo "Setting kibana_system system user password...";
+        curl -s -X POST -u elastic:SuperSecurePassword123 -H "Content-Type: application/json" \
+          http://es-data-01:9200/_security/user/kibana_system/_password \
+          -d "{\"password\":\"KibanaSystemPassword123\"}";
+          
+        echo "All setup configurations are completed successfully!";
+      '
+    networks:
+      - elastic
+
+  es-master-01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: es-master-01
+    environment:
+      - node.name=es-master-01
+      - cluster.name=scale-cluster
+      - node.roles=[ master ]
+      - cluster.initial_master_nodes=es-master-01,es-master-02,es-master-03
+      - discovery.seed_hosts=es-master-02,es-master-03,es-data-01,es-data-02
+      - xpack.security.enabled=true
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.key=certs/es-master-01/es-master-01.key
+      - xpack.security.transport.ssl.certificate=certs/es-master-01/es-master-01.crt
+      - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
+      - ELASTIC_PASSWORD=SuperSecurePassword123
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    volumes:
+      - master01_data:/usr/share/elasticsearch/data
+      - certs:/usr/share/elasticsearch/config/certs
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    networks:
+      - elastic
+
+  es-master-02:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: es-master-02
+    environment:
+      - node.name=es-master-02
+      - cluster.name=scale-cluster
+      - node.roles=[ master ]
+      - cluster.initial_master_nodes=es-master-01,es-master-02,es-master-03
+      - discovery.seed_hosts=es-master-01,es-master-03,es-data-01,es-data-02
+      - xpack.security.enabled=true
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.key=certs/es-master-02/es-master-02.key
+      - xpack.security.transport.ssl.certificate=certs/es-master-02/es-master-02.crt
+      - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
+      - ELASTIC_PASSWORD=SuperSecurePassword123
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    volumes:
+      - master02_data:/usr/share/elasticsearch/data
+      - certs:/usr/share/elasticsearch/config/certs
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    networks:
+      - elastic
+
+  es-master-03:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: es-master-03
+    environment:
+      - node.name=es-master-03
+      - cluster.name=scale-cluster
+      - node.roles=[ master ]
+      - cluster.initial_master_nodes=es-master-01,es-master-02,es-master-03
+      - discovery.seed_hosts=es-master-01,es-master-02,es-data-01,es-data-02
+      - xpack.security.enabled=true
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.key=certs/es-master-03/es-master-03.key
+      - xpack.security.transport.ssl.certificate=certs/es-master-03/es-master-03.crt
+      - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
+      - ELASTIC_PASSWORD=SuperSecurePassword123
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    volumes:
+      - master03_data:/usr/share/elasticsearch/data
+      - certs:/usr/share/elasticsearch/config/certs
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    networks:
+      - elastic
+
+  es-data-01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: es-data-01
+    environment:
+      - node.name=es-data-01
+      - cluster.name=scale-cluster
+      - node.roles=[ data, ingest ]
+      - cluster.initial_master_nodes=es-master-01,es-master-02,es-master-03
+      - discovery.seed_hosts=es-master-01,es-master-02,es-master-03
+      - xpack.security.enabled=true
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.key=certs/es-data-01/es-data-01.key
+      - xpack.security.transport.ssl.certificate=certs/es-data-01/es-data-01.crt
+      - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
+      - xpack.security.http.ssl.enabled=false
+      - ELASTIC_PASSWORD=SuperSecurePassword123
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - data01_data:/usr/share/elasticsearch/data
+      - certs:/usr/share/elasticsearch/config/certs
+    ports:
+      - 9200:9200 
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -u elastic:SuperSecurePassword123 http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    networks:
+      - elastic
+
+  es-data-02:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: es-data-02
+    environment:
+      - node.name=es-data-02
+      - cluster.name=scale-cluster
+      - node.roles=[ data, ingest ]
+      - cluster.initial_master_nodes=es-master-01,es-master-02,es-master-03
+      - discovery.seed_hosts=es-master-01,es-master-02,es-master-03
+      - xpack.security.enabled=true
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.key=certs/es-data-02/es-data-02.key
+      - xpack.security.transport.ssl.certificate=certs/es-data-02/es-data-02.crt
+      - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
+      - xpack.security.http.ssl.enabled=false
+      - ELASTIC_PASSWORD=SuperSecurePassword123
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - data02_data:/usr/share/elasticsearch/data
+      - certs:/usr/share/elasticsearch/config/certs
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    networks:
+      - elastic
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.0
+    container_name: kibana
+    ports:
+      - 5601:5601
+    environment:
+      - ELASTICSEARCH_HOSTS=["http://es-data-01:9200","http://es-data-02:9200"]
+      # Secured internal Kibana platform authentication
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=KibanaSystemPassword123
+      # Encryption keys fix
+      - XPACK_SECURITY_ENCRYPTIONKEY=abcdefghijklmnopqrstuvwxyz1234567890abc
+      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=abcdefghijklmnopqrstuvwxyz1234567890abc
+      - XPACK_REPORTING_ENCRYPTIONKEY=abcdefghijklmnopqrstuvwxyz1234567890abc
+    networks:
+      - elastic
+    depends_on:
+      es-data-01:
+        condition: service_healthy
+
+volumes:
+  master01_data:
+  master02_data:
+  master03_data:
+  data01_data:
+  data02_data:
+  certs:
+
+networks:
+  elastic:
+    driver: bridge
