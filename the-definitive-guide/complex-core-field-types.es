@@ -139,6 +139,8 @@ GET complex_core_field_types-idx-000004/_search
     }
 }
 
+// DELETE complex_core_field_types-idx-000005
+
 PUT complex_core_field_types-idx-000005
 {
     "mappings": {
@@ -218,18 +220,18 @@ PUT complex_core_field_types-idx-000005/_doc/1
     ],
     "comments": [
         {
-            "name": "John Smith",
-            "comment": "Great article",
-            "age": 28,
-            "stars": 4,
-            "date": "2014-09-01"
-        },
-        {
             "name": "Alice White",
             "comment": "More like this please",
             "age": 31,
             "stars": 5,
             "date": "2014-10-22"
+        },
+        {
+            "name": "John Smith",
+            "comment": "Great article",
+            "age": 28,
+            "stars": 4,
+            "date": "2014-09-01"
         }
     ]
 }
@@ -239,23 +241,197 @@ GET complex_core_field_types-idx-000005/_doc/1
 GET complex_core_field_types-idx-000005/_search
 {
     "query": {
-        "bool"
+        "bool": {
+            "must": [
+                {
+                    "match": {
+                        "title": "eggs"
+                    }
+                },
+                {
+                    "nested": {
+                        "path": "comments",
+                        "score_mode": "max",
+                        "query": {
+                            "bool": {
+                                "must": [
+                                    {
+                                        "match": {
+                                            "comments.name": "john"
+                                        }
+                                    },
+                                    {
+                                        "match": {
+                                            "comments.age": 28
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}
+
+PUT /complex_core_field_types-idx-000005/_doc/2
+{
+    "title": "Investment secrets",
+    "body": "What they don't tell you ...",
+    "tags": [ "shares", "equities" ],
+    "comments": [
+        {
+            "name": "Mary Brown",
+            "comment": "Lies, lies, lies",
+            "age": 42,
+            "stars": 1,
+            "date": "2014-10-18"
+        },
+        {
+            "name": "John Smith",
+            "comment": "You're making it up!",
+            "age": 28,
+            "stars": 2,
+            "date": "2014-10-16"
+        }
+    ]
+}
+
+PUT /complex_core_field_types-idx-000005/_doc/3
+{
+    "title": "Investment secrets",
+    "body": "Secrets of the investment world ...",
+    "tags": [ "shares", "etf" ],
+    "comments": [
+        {
+            "name": "Jake Black",
+            "comment": "What a load of rubbish",
+            "age": 41,
+            "stars": 1,
+            "date": "2015-09-18"
+        },
+        {
+            "name": "Mike Palmer",
+            "comment": "Stop making it up!",
+            "age": 27,
+            "stars": 3,
+            "date": "2015-09-16"
+        }
+    ]
+}
+
+GET /complex_core_field_types-idx-000005/_doc/3
+
+GET /complex_core_field_types-idx-000005/_mappings
+
+GET /complex_core_field_types-idx-000005/_search
+{
+    "query": {
         "nested": {
             "path": "comments",
             "query": {
-                "bool": {
-                    "must": [
-                        {
-                            "match": {
-                                "comments.name": "Alice"
-                            }
-                        },
-                        {
-                            "match": {
-                                "comments.age": 31
+                "range": {
+                    "comments.date": {
+                        "gte": "2014-10-01",
+                        "lt": "2014-11-01"
+                    }
+                }
+            }
+        }
+    },
+    "sort": [
+        {
+            "comments.stars": {
+                "order": "asc",
+                "mode": "min",
+                "nested": {
+                    "path": "comments",
+                    "filter": {
+                        "range": {
+                            "comments.date": {
+                                "gte": "2014-10-01",
+                                "lt": "2014-11-01"
                             }
                         }
-                    ]
+                    }
+                }
+            }
+        }
+    ]
+}
+
+GET /complex_core_field_types-idx-000005/_search
+{
+    "size": 0,
+    "aggs": {
+        "comments": {
+            "nested": {
+                "path": "comments"
+            },
+            "aggs": {
+                "by_month": {
+                    "date_histogram": {
+                        "field": "comments.date",
+                        "calendar_interval": "month",
+                        "format": "yyyy-MM"
+                    },
+                    "aggs": {
+                        "avg_stars": {
+                            "avg": {
+                                "field": "comments.stars"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+GET /complex_core_field_types-idx-000005/_search
+{
+    "size": 0,
+    "aggs": {
+        "comments": {
+            "nested": {
+                "path": "comments"
+            },
+            "aggs": {
+                "age_group": {
+                    "histogram": {
+                        "field": "comments.age",
+                        "interval": 5
+                    },
+                    "aggs": {
+                        "blogposts": {
+                            "reverse_nested": {},
+                            "aggs": {
+                                "tags": {
+                                    "terms": {
+                                        "field": "tags.keyword"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "by_stars": {
+                    "terms": {
+                        "field": "comments.stars"
+                    },
+                    "aggs": {
+                        "starred_tags": {
+                            "reverse_nested": {},
+                            "aggs": {
+                                "tags": {
+                                    "terms": {
+                                        "field": "tags.keyword"
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
